@@ -12,3 +12,5 @@ wheels/
 example_tools
 
 testit.py
+
+*.DS_Store

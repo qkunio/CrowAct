@@ -26,7 +26,7 @@ pip install -e .
 ## Quick Start
 
 ```python
-from CrowAct import Agent, LLMProvider
+from CrowAct import Agent, LLMProvider, load_prompt_from
 from CrowAct.agent.tools import get_tools
 
 TOOLS = get_tools("test_folder")
@@ -37,12 +37,7 @@ def main() -> None:
     agent = Agent(
         provider=provider,
         model="deepseek-v3.2",
-        system_prompt=(
-            "You are a concise ReAct-style assistant. "
-            "Use tools first when needed. "
-            "You may call tools in multiple steps. "
-            "After receiving tool results, provide the final answer."
-        ),
+        system_prompt=load_prompt_from(["system.md", "rules.txt"]),
         tools=TOOLS,
     )
 
@@ -60,6 +55,26 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+```
+
+`load_prompt_from(...)` supports either a single file path or multiple file paths.
+
+```python
+system_prompt = load_prompt_from("system.md")
+
+system_prompt = load_prompt_from(["system.md", "rules.txt"])
+```
+
+Generated format:
+
+```text
+system.md
+----
+file content
+
+rules.txt
+----
+file content
 ```
 
 ## Tool Files

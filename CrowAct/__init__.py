@@ -1,3 +1,3 @@
-from .agent import Agent, LLMProvider, run_agent
+from .agent import Agent, LLMProvider, load_prompt_from, run_agent
 
-__all__ = ["Agent", "LLMProvider", "run_agent"]
+__all__ = ["Agent", "LLMProvider", "load_prompt_from", "run_agent"]

@@ -1,4 +1,4 @@
-from CrowAct import Agent, LLMProvider
+from CrowAct import Agent, LLMProvider, load_prompt_from
 from CrowAct.agent.tools import get_tools
 
 TOOLS = get_tools("your_tool_folder_name")
@@ -18,12 +18,7 @@ def main() -> None:
     agent = Agent(
         provider=bytedance,
         model="deepseek-v3.2",
-        system_prompt=(
-            "You are a concise ReAct-style assistant. "
-            "Use tools first when needed. "
-            "You may call tools in multiple steps. "
-            "After receiving tool results, provide the final answer."
-        ),
+        system_prompt=load_prompt_from(["xxx.md", "yyy.txt"]),
         tools=TOOLS,
     )
     question = (
