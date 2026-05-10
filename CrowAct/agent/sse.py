@@ -4,6 +4,14 @@ from typing import Any, Iterator
 import requests
 
 
+def _set_content_block(
+    content_blocks: list[dict[str, Any]], index: int, block: dict[str, Any]
+) -> None:
+    while len(content_blocks) <= index:
+        content_blocks.append({"type": "_placeholder"})
+    content_blocks[index] = block
+
+
 def iter_sse_chunks(
     response: requests.Response, content_blocks: list[dict[str, Any]]
 ) -> Iterator[dict[str, Any]]:
@@ -38,22 +46,36 @@ def iter_sse_chunks(
         if event_type == "content_block_start":
             block = payload.get("content_block", {})
             block_type = block.get("type")
+            index = payload.get("index", len(content_blocks))
 
             if block_type == "text":
                 text = block.get("text", "")
-                content_blocks.append({"type": "text", "text": text})
+                _set_content_block(content_blocks, index, {"type": "text", "text": text})
                 if text:
                     yield {"type": "text", "text": text}
 
+            elif block_type == "thinking":
+                thinking = block.get("thinking", "")
+                thinking_block = {
+                    key: value for key, value in block.items() if not key.startswith("_")
+                }
+                thinking_block.setdefault("type", "thinking")
+                thinking_block.setdefault("thinking", thinking)
+                _set_content_block(content_blocks, index, thinking_block)
+                if thinking:
+                    yield {"type": "thinking", "thinking": thinking}
+
             elif block_type == "tool_use":
-                content_blocks.append(
+                _set_content_block(
+                    content_blocks,
+                    index,
                     {
                         "type": "tool_use",
                         "id": block.get("id"),
                         "name": block.get("name"),
                         "input": {},
                         "_partial_input": "",
-                    }
+                    },
                 )
 
         elif event_type == "content_block_delta":
@@ -70,6 +92,15 @@ def iter_sse_chunks(
                 block["text"] = block.get("text", "") + text
                 if text:
                     yield {"type": "text", "text": text}
+
+            elif delta_type == "thinking_delta" and block.get("type") == "thinking":
+                thinking = delta.get("thinking", "")
+                block["thinking"] = block.get("thinking", "") + thinking
+                if thinking:
+                    yield {"type": "thinking", "thinking": thinking}
+
+            elif delta_type == "signature_delta" and block.get("type") == "thinking":
+                block["signature"] = delta.get("signature", "")
 
             elif delta_type == "input_json_delta" and block.get("type") == "tool_use":
                 partial_json = delta.get("partial_json", "")

@@ -122,21 +122,19 @@ The final plain-text answer is stored in `agent.last_answer`.
 
 ## History
 
-You can pass prior conversation context through `history`.
+`history` is optional. If omitted, the `Agent` starts with an empty history and keeps appending records across later `run()` calls. Stored history includes user messages, assistant messages, tool calls, and tool results. The history is available at `agent.history` and is truncated from the front with `history_window` (default: `20`).
 
 ```python
 agent = Agent(
     provider=provider,
     model="deepseek-v3.2",
     system_prompt="You are helpful.",
-    history=[
-        {"role": "user", "content": [{"type": "text", "text": "Previous question"}]},
-        {"role": "assistant", "content": [{"type": "text", "text": "Previous answer"}]},
-    ],
+    history_window=20,
 )
+agent.run("First question")
+agent.run("Follow-up question")
+print(len(agent.history))  # <= 20
 ```
-
-`history` is prepended to the current run, but it is not mutated after execution.
 
 ## Provider Setup
 

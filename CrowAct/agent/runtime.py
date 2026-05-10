@@ -6,6 +6,7 @@ from .provider import LLMProvider
 from .tools import execute_tool_call, get_tools
 
 MAX_TURNS = 20
+DEFAULT_HISTORY_WINDOW = 20
 
 
 def _collect_text(content_blocks: list[dict[str, Any]]) -> str:
@@ -21,6 +22,7 @@ class Agent:
     model: str
     tools: Optional[list[dict[str, Any]]] = None
     history: Optional[list[dict[str, Any]]] = None
+    history_window: int = DEFAULT_HISTORY_WINDOW
     max_turns: int = MAX_TURNS
     max_tokens: int = 1024
     temperature: float = 0.4
@@ -30,6 +32,10 @@ class Agent:
     def __post_init__(self) -> None:
         if self.tools is None:
             self.tools = get_tools()
+        self.history = list(self.history or [])
+        if self.history_window < 1:
+            raise ValueError("history_window must be at least 1")
+        self._trim_history()
         self.client = AnthropicToolCallModel(
             provider=self.provider,
             model=self.model,
@@ -38,14 +44,20 @@ class Agent:
             timeout=self.timeout,
         )
 
+    def _trim_history(self) -> None:
+        self.history = self.history[-self.history_window :]
+
+    def _append_history(self, *messages: dict[str, Any]) -> None:
+        self.history.extend(messages)
+        self._trim_history()
+
     def run(self, user_query: str, stream: bool = False) -> Iterator[dict[str, Any]]:
-        messages: list[dict[str, Any]] = list(self.history or [])
-        messages.append(
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": user_query}],
-            }
-        )
+        user_message = {
+            "role": "user",
+            "content": [{"type": "text", "text": user_query}],
+        }
+        self._append_history(user_message)
+        messages: list[dict[str, Any]] = list(self.history)
 
         for _ in range(self.max_turns):
             content_blocks: list[dict[str, Any]] = []
@@ -71,7 +83,9 @@ class Agent:
                         if not key.startswith("_")
                     }
 
-            messages.append({"role": "assistant", "content": content_blocks})
+            assistant_message = {"role": "assistant", "content": content_blocks}
+            self._append_history(assistant_message)
+            messages = list(self.history)
             tool_calls = [
                 block for block in content_blocks if block.get("type") == "tool_use"
             ]
@@ -90,7 +104,9 @@ class Agent:
                 tool_results.append(tool_result)
                 yield tool_result
 
-            messages.append({"role": "user", "content": tool_results})
+            tool_result_message = {"role": "user", "content": tool_results}
+            self._append_history(tool_result_message)
+            messages = list(self.history)
 
         raise RuntimeError("Exceeded the maximum number of turns without a final answer")
 
